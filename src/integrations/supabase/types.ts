@@ -14,16 +14,173 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_visit_logs: {
+        Row: {
+          contact_met_id: string | null
+          created_at: string
+          date: string
+          expense_remarks: string | null
+          food_expense: number
+          h_id: string
+          id: string
+          lodge_expense: number
+          outcome_notes: string
+          purpose: Database["public"]["Enums"]["visit_purpose"]
+          staff_id: string
+          travel_expense: number
+        }
+        Insert: {
+          contact_met_id?: string | null
+          created_at?: string
+          date?: string
+          expense_remarks?: string | null
+          food_expense?: number
+          h_id: string
+          id?: string
+          lodge_expense?: number
+          outcome_notes: string
+          purpose: Database["public"]["Enums"]["visit_purpose"]
+          staff_id: string
+          travel_expense?: number
+        }
+        Update: {
+          contact_met_id?: string | null
+          created_at?: string
+          date?: string
+          expense_remarks?: string | null
+          food_expense?: number
+          h_id?: string
+          id?: string
+          lodge_expense?: number
+          outcome_notes?: string
+          purpose?: Database["public"]["Enums"]["visit_purpose"]
+          staff_id?: string
+          travel_expense?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_visit_logs_contact_met_id_fkey"
+            columns: ["contact_met_id"]
+            isOneToOne: false
+            referencedRelation: "h_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_visit_logs_h_id_fkey"
+            columns: ["h_id"]
+            isOneToOne: false
+            referencedRelation: "h_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_visit_logs_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      h_contacts: {
+        Row: {
+          contact_name: string
+          created_at: string
+          h_id: string
+          id: string
+          phone_number: string | null
+          posting_designation: string
+        }
+        Insert: {
+          contact_name: string
+          created_at?: string
+          h_id: string
+          id?: string
+          phone_number?: string | null
+          posting_designation: string
+        }
+        Update: {
+          contact_name?: string
+          created_at?: string
+          h_id?: string
+          id?: string
+          phone_number?: string | null
+          posting_designation?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "h_contacts_h_id_fkey"
+            columns: ["h_id"]
+            isOneToOne: false
+            referencedRelation: "h_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      h_master: {
+        Row: {
+          branch_area: string
+          city: string
+          created_at: string
+          h_name: string
+          id: string
+        }
+        Insert: {
+          branch_area: string
+          city: string
+          created_at?: string
+          h_name: string
+          id?: string
+        }
+        Update: {
+          branch_area?: string
+          city?: string
+          created_at?: string
+          h_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      staff_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          staff_name: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          staff_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          staff_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "worker"
+      visit_purpose:
+        | "Product Demo"
+        | "New Order Taking"
+        | "Payment Collection"
+        | "Relationship Building"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +307,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "worker"],
+      visit_purpose: [
+        "Product Demo",
+        "New Order Taking",
+        "Payment Collection",
+        "Relationship Building",
+      ],
+    },
   },
 } as const

@@ -13,6 +13,8 @@ import { Download, Send } from "lucide-react";
 import { toast } from "sonner";
 import { format, isSameDay, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { DirectoryTab } from "./DirectoryTab";
+import { LeaveApprovals } from "./LeaveApprovals";
 
 type Row = {
   id: string;

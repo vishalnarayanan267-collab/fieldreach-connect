@@ -1,29 +1,59 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { WorkerDashboard } from "@/components/WorkerDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
-import { ensureDemoSession } from "@/lib/demo-auth";
-import { Loader2, ShieldCheck, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, LogOut, ShieldCheck, User } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 function Index() {
-  const [role, setRole] = useState<"worker" | "admin">("worker");
+  const navigate = useNavigate();
   const [ready, setReady] = useState(false);
-  const [switching, setSwitching] = useState(false);
+  const [role, setRole] = useState<"worker" | "admin" | null>(null);
+  const [name, setName] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
-    setSwitching(true);
-    ensureDemoSession(role)
-      .then(() => { if (!cancelled) { setReady(true); setSwitching(false); } })
-      .catch((e) => { console.error(e); setSwitching(false); });
-    return () => { cancelled = true; };
-  }, [role]);
+    async function load() {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("staff_profiles")
+        .select("role,staff_name")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setRole((profile?.role as "worker" | "admin") ?? "worker");
+      setName(profile?.staff_name ?? data.user.email ?? "");
+      setReady(true);
+    }
+    load();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") navigate({ to: "/auth", replace: true });
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+  }, [navigate]);
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-500">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -32,31 +62,19 @@ function Index() {
         <div className="mx-auto max-w-5xl px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight truncate">Lifecare Portal</h1>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-              {role === "admin" ? "Admin Console" : "Field Worker"}
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+              {role === "admin" ? <ShieldCheck className="h-3 w-3" /> : <User className="h-3 w-3" />}
+              {role === "admin" ? "Admin" : "Worker"} · {name}
             </p>
           </div>
-          <Button
-            onClick={() => setRole(role === "worker" ? "admin" : "worker")}
-            disabled={switching}
-            variant="outline"
-            className="shrink-0 border-2 border-slate-900 font-bold rounded-none"
-          >
-            {switching ? <Loader2 className="h-4 w-4 animate-spin" /> : role === "worker" ? (
-              <><ShieldCheck className="h-4 w-4 mr-1.5" />Admin</>
-            ) : (
-              <><User className="h-4 w-4 mr-1.5" />Worker</>
-            )}
+          <Button onClick={signOut} variant="outline" className="shrink-0 border-2 border-slate-900 font-bold rounded-none">
+            <LogOut className="h-4 w-4 mr-1.5" />Sign Out
           </Button>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-0 sm:px-4 py-4 sm:py-6">
-        {!ready ? (
-          <div className="flex items-center justify-center py-20 text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Preparing session…
-          </div>
-        ) : role === "worker" ? <WorkerDashboard /> : <AdminDashboard />}
+        {role === "admin" ? <AdminDashboard /> : <WorkerDashboard />}
       </main>
     </div>
   );

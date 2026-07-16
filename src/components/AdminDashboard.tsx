@@ -304,6 +304,14 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       </TabsContent>
+
+      <TabsContent value="directory" className="mt-3">
+        <DirectoryTab />
+      </TabsContent>
+
+      <TabsContent value="leaves" className="mt-3">
+        <LeaveApprovals />
+      </TabsContent>
     </Tabs>
   );
 }

@@ -13,6 +13,8 @@ import { Download, Send } from "lucide-react";
 import { toast } from "sonner";
 import { format, isSameDay, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import { DirectoryTab } from "./DirectoryTab";
+import { LeaveApprovals } from "./LeaveApprovals";
 
 type Row = {
   id: string;
@@ -163,9 +165,11 @@ export function AdminDashboard() {
 
   return (
     <Tabs defaultValue="reports" className="w-full">
-      <TabsList className="grid grid-cols-2 mx-3 sm:mx-0 rounded-none border-2 border-slate-900/10 bg-slate-100">
-        <TabsTrigger value="reports" className="rounded-none font-bold">Reports</TabsTrigger>
-        <TabsTrigger value="dispatch" className="rounded-none font-bold">Team Dispatch</TabsTrigger>
+      <TabsList className="grid grid-cols-4 mx-3 sm:mx-0 rounded-none border-2 border-slate-900/10 bg-slate-100">
+        <TabsTrigger value="reports" className="rounded-none font-bold text-xs sm:text-sm">Reports</TabsTrigger>
+        <TabsTrigger value="dispatch" className="rounded-none font-bold text-xs sm:text-sm">Dispatch</TabsTrigger>
+        <TabsTrigger value="directory" className="rounded-none font-bold text-xs sm:text-sm">Directory</TabsTrigger>
+        <TabsTrigger value="leaves" className="rounded-none font-bold text-xs sm:text-sm">Leaves</TabsTrigger>
       </TabsList>
 
       <TabsContent value="reports" className="mt-3 space-y-4 px-3 sm:px-0">
@@ -299,6 +303,14 @@ export function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="directory" className="mt-3">
+        <DirectoryTab />
+      </TabsContent>
+
+      <TabsContent value="leaves" className="mt-3">
+        <LeaveApprovals />
       </TabsContent>
     </Tabs>
   );

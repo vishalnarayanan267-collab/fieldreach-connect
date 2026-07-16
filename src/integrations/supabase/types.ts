@@ -198,6 +198,69 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_leaves: {
+        Row: {
+          created_at: string
+          duration_type: Database["public"]["Enums"]["leave_duration"]
+          end_date: string
+          hours_needed: number | null
+          id: string
+          leave_type: Database["public"]["Enums"]["leave_type"]
+          reason_notes: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          staff_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_type: Database["public"]["Enums"]["leave_duration"]
+          end_date: string
+          hours_needed?: number | null
+          id?: string
+          leave_type: Database["public"]["Enums"]["leave_type"]
+          reason_notes: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          staff_id: string
+          start_date: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_type?: Database["public"]["Enums"]["leave_duration"]
+          end_date?: string
+          hours_needed?: number | null
+          id?: string
+          leave_type?: Database["public"]["Enums"]["leave_type"]
+          reason_notes?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          staff_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_leaves_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_leaves_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_profiles: {
         Row: {
           created_at: string
@@ -234,6 +297,9 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "worker"
+      leave_duration: "Full Day" | "Half Day" | "Hourly"
+      leave_status: "Pending" | "Approved" | "Rejected"
+      leave_type: "Sick Leave" | "Personal Work Leave" | "Mid-Day Offsite"
       visit_purpose:
         | "Product Demo"
         | "New Order Taking"
@@ -367,6 +433,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "worker"],
+      leave_duration: ["Full Day", "Half Day", "Hourly"],
+      leave_status: ["Pending", "Approved", "Rejected"],
+      leave_type: ["Sick Leave", "Personal Work Leave", "Mid-Day Offsite"],
       visit_purpose: [
         "Product Demo",
         "New Order Taking",

@@ -98,20 +98,36 @@ export function AdminDashboard() {
   }, [tasks, dispatchDate]);
 
   function exportCsv() {
-    const headers = ["Visit Date", "Logged At", "Staff", "Hospital", "Branch", "City", "Person Met", "Purpose", "Outcome", "Travel", "Food", "Lodge", "Total"];
+    const headers = ["Date", "Staff", "Hospital", "Branch", "City", "Person Met", "Purpose", "Outcome", "Travel", "Food", "Lodge", "Total Expense"];
+    const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
     const lines = filtered.map((r) => {
       const total = Number(r.travel_expense) + Number(r.food_expense) + Number(r.lodge_expense);
-      return [r.visit_date ?? r.date, r.date, r.staff_profiles?.staff_name ?? "", r.h_master?.h_name ?? "", r.h_master?.branch_area ?? "",
-              r.h_master?.city ?? "", r.h_contacts?.contact_name ?? "", r.purpose, r.outcome_notes,
-              r.travel_expense, r.food_expense, r.lodge_expense, total]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+      return [
+        r.visit_date ?? r.date,
+        r.staff_profiles?.staff_name ?? "",
+        r.h_master?.h_name ?? "",
+        r.h_master?.branch_area ?? "",
+        r.h_master?.city ?? "",
+        r.h_contacts?.contact_name ?? "",
+        r.purpose,
+        r.outcome_notes,
+        r.travel_expense,
+        r.food_expense,
+        r.lodge_expense,
+        total,
+      ].map(escape).join(",");
     });
-    const csv = [headers.join(","), ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const csv = "\uFEFF" + [headers.join(","), ...lines].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `visits-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `lifecare_visit_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success("CSV downloaded");
   }
 
   async function assignTask() {

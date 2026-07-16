@@ -14,6 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
+      assigned_tasks: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          h_id: string
+          id: string
+          scheduled_date: string
+          status: string
+          task_notes: string
+          worker_id: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string
+          h_id: string
+          id?: string
+          scheduled_date: string
+          status?: string
+          task_notes: string
+          worker_id: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          h_id?: string
+          id?: string
+          scheduled_date?: string
+          status?: string
+          task_notes?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_tasks_h_id_fkey"
+            columns: ["h_id"]
+            isOneToOne: false
+            referencedRelation: "h_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assigned_tasks_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_visit_logs: {
         Row: {
           contact_met_id: string | null
@@ -28,6 +83,7 @@ export type Database = {
           purpose: Database["public"]["Enums"]["visit_purpose"]
           staff_id: string
           travel_expense: number
+          visit_date: string
         }
         Insert: {
           contact_met_id?: string | null
@@ -42,6 +98,7 @@ export type Database = {
           purpose: Database["public"]["Enums"]["visit_purpose"]
           staff_id: string
           travel_expense?: number
+          visit_date?: string
         }
         Update: {
           contact_met_id?: string | null
@@ -56,6 +113,7 @@ export type Database = {
           purpose?: Database["public"]["Enums"]["visit_purpose"]
           staff_id?: string
           travel_expense?: number
+          visit_date?: string
         }
         Relationships: [
           {

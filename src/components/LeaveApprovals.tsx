@@ -51,7 +51,19 @@ export function LeaveApprovals() {
       reviewed_at: new Date().toISOString(),
     }).eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success(`Leave ${status.toLowerCase()}`);
+    if (status === "Approved") {
+      const l = leaves.find(x => x.id === id);
+      if (l) {
+        downloadIcs({
+          uid: `leave-${l.id}`,
+          title: `Approved Leave: ${l.leave_type}`,
+          description: `Duration: ${l.duration_type}${l.hours_needed ? ` (${l.hours_needed}h)` : ""}\nReason: ${l.reason_notes}\nStaff: ${l.staff_profiles?.staff_name ?? ""}`,
+          startDate: l.start_date,
+          endDate: l.end_date,
+        });
+      }
+    }
+    toast.success(`Leave ${status.toLowerCase()}${status === "Approved" ? " · calendar invite downloaded" : ""}`);
     load();
   }
 

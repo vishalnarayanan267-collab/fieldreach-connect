@@ -15,28 +15,30 @@ import { format, isSameDay, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DirectoryTab } from "./DirectoryTab";
 import { LeaveApprovals } from "./LeaveApprovals";
+import { AdminLocations } from "./AdminLocations";
+import { downloadIcs } from "@/lib/ics";
 
 type Row = {
   id: string;
   date: string;
   visit_date: string | null;
   outcome_notes: string;
-  travel_expense: number;
-  food_expense: number;
-  lodge_expense: number;
+  expense_amount: number;
+  expense_category: string | null;
   purpose: string;
   h_master: { h_name: string; branch_area: string; city: string } | null;
   h_contacts: { contact_name: string } | null;
   staff_profiles: { staff_name: string } | null;
 };
 
-type Worker = { id: string; staff_name: string };
+type Worker = { id: string; staff_name: string; email?: string | null };
 type Hospital = { id: string; h_name: string; branch_area: string; city: string };
 type Task = {
   id: string;
   scheduled_date: string;
   task_notes: string;
   status: string;
+  worker_id: string;
   worker: { staff_name: string } | null;
   h_master: { h_name: string; branch_area: string; city: string } | null;
 };
@@ -60,18 +62,18 @@ export function AdminDashboard() {
     setLoading(true);
     const [logs, staff, hosp, tsk] = await Promise.all([
       supabase.from("daily_visit_logs")
-        .select("id,date,visit_date,outcome_notes,travel_expense,food_expense,lodge_expense,purpose,h_master(h_name,branch_area,city),h_contacts(contact_name),staff_profiles(staff_name)")
+        .select("id,date,visit_date,outcome_notes,expense_amount,expense_category,purpose,h_master(h_name,branch_area,city),h_contacts(contact_name),staff_profiles(staff_name)")
         .order("visit_date", { ascending: false }),
       supabase.from("staff_profiles").select("id,staff_name,role").order("staff_name"),
       supabase.from("h_master").select("id,h_name,branch_area,city").order("h_name"),
       supabase.from("assigned_tasks")
-        .select("id,scheduled_date,task_notes,status,worker:staff_profiles!assigned_tasks_worker_id_fkey(staff_name),h_master(h_name,branch_area,city)")
+        .select("id,scheduled_date,task_notes,status,worker_id,worker:staff_profiles!assigned_tasks_worker_id_fkey(staff_name),h_master(h_name,branch_area,city)")
         .order("scheduled_date", { ascending: true }),
     ]);
     setLoading(false);
     if (logs.error) toast.error(logs.error.message);
     setRows((logs.data as unknown as Row[]) ?? []);
-    setWorkers(((staff.data as { id: string; staff_name: string; role: string }[] | null) ?? []).filter((s) => s.role === "worker"));
+    setWorkers(((staff.data as { id: string; staff_name: string; role: string }[] | null) ?? []).filter((s) => s.role !== "admin"));
     setHospitals((hosp.data as Hospital[] | null) ?? []);
     setTasks((tsk.data as unknown as Task[]) ?? []);
   }
@@ -88,10 +90,10 @@ export function AdminDashboard() {
 
   const totals = useMemo(() => filtered.reduce((a, r) => ({
     visits: a.visits + 1,
-    travel: a.travel + Number(r.travel_expense),
-    food: a.food + Number(r.food_expense),
-    lodge: a.lodge + Number(r.lodge_expense),
-  }), { visits: 0, travel: 0, food: 0, lodge: 0 }), [filtered]);
+    total: a.total + Number(r.expense_amount),
+    petrol: a.petrol + (r.expense_category === "Petrol" ? Number(r.expense_amount) : 0),
+    food: a.food + (r.expense_category === "Food" ? Number(r.expense_amount) : 0),
+  }), { visits: 0, total: 0, petrol: 0, food: 0 }), [filtered]);
 
   const taskDates = useMemo(() => tasks.map((t) => new Date(t.scheduled_date + "T00:00:00")), [tasks]);
   const tasksOnDispatch = useMemo(() => {
@@ -100,25 +102,20 @@ export function AdminDashboard() {
   }, [tasks, dispatchDate]);
 
   function exportCsv() {
-    const headers = ["Date", "Staff", "Hospital", "Branch", "City", "Person Met", "Purpose", "Outcome", "Travel", "Food", "Lodge", "Total Expense"];
+    const headers = ["Date", "Staff", "Hospital", "Branch", "City", "Person Met", "Purpose", "Outcome", "Category", "Amount"];
     const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
-    const lines = filtered.map((r) => {
-      const total = Number(r.travel_expense) + Number(r.food_expense) + Number(r.lodge_expense);
-      return [
-        r.visit_date ?? r.date,
-        r.staff_profiles?.staff_name ?? "",
-        r.h_master?.h_name ?? "",
-        r.h_master?.branch_area ?? "",
-        r.h_master?.city ?? "",
-        r.h_contacts?.contact_name ?? "",
-        r.purpose,
-        r.outcome_notes,
-        r.travel_expense,
-        r.food_expense,
-        r.lodge_expense,
-        total,
-      ].map(escape).join(",");
-    });
+    const lines = filtered.map((r) => [
+      r.visit_date ?? r.date,
+      r.staff_profiles?.staff_name ?? "",
+      r.h_master?.h_name ?? "",
+      r.h_master?.branch_area ?? "",
+      r.h_master?.city ?? "",
+      r.h_contacts?.contact_name ?? "",
+      r.purpose,
+      r.outcome_notes,
+      r.expense_category ?? "",
+      r.expense_amount,
+    ].map(escape).join(","));
     const csv = "\uFEFF" + [headers.join(","), ...lines].join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -142,32 +139,45 @@ export function AdminDashboard() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return toast.error("Not signed in");
     setAssigning(true);
-    const { error } = await supabase.from("assigned_tasks").insert({
+    const { data: inserted, error } = await supabase.from("assigned_tasks").insert({
       assigned_by: u.user.id,
       worker_id: dWorker,
       h_id: dHospital,
       task_notes: dNotes,
       scheduled_date: format(dispatchDate, "yyyy-MM-dd"),
-    });
+    }).select("id").single();
     setAssigning(false);
     if (error) return toast.error(error.message);
-    toast.success("Task assigned");
+
+    // Auto-generate an .ics invite so admin can share/download it to email.
+    const worker = workers.find(w => w.id === dWorker);
+    const hospital = hospitals.find(h => h.id === dHospital);
+    downloadIcs({
+      uid: `task-${inserted?.id ?? crypto.randomUUID()}`,
+      title: `Field Visit: ${hospital?.h_name ?? "Hospital"}`,
+      description: `Objective: ${dNotes}\nAssigned to: ${worker?.staff_name ?? ""}`,
+      location: hospital ? `${hospital.h_name}, ${hospital.branch_area}, ${hospital.city}` : undefined,
+      startDate: format(dispatchDate, "yyyy-MM-dd"),
+    });
+
+    toast.success("Task assigned · calendar invite downloaded");
     setDNotes(""); setDWorker(""); setDHospital("");
     load();
   }
 
   const cards = [
     { label: "Total Visits", value: totals.visits },
-    { label: "Travel", value: `₹${totals.travel.toFixed(0)}` },
+    { label: "Total Expense", value: `₹${totals.total.toFixed(0)}` },
+    { label: "Petrol", value: `₹${totals.petrol.toFixed(0)}` },
     { label: "Food", value: `₹${totals.food.toFixed(0)}` },
-    { label: "Lodge", value: `₹${totals.lodge.toFixed(0)}` },
   ];
 
   return (
     <Tabs defaultValue="reports" className="w-full">
-      <TabsList className="grid grid-cols-4 mx-3 sm:mx-0 rounded-none border-2 border-slate-900/10 bg-slate-100">
+      <TabsList className="grid grid-cols-5 mx-3 sm:mx-0 rounded-none border-2 border-slate-900/10 bg-slate-100">
         <TabsTrigger value="reports" className="rounded-none font-bold text-xs sm:text-sm">Reports</TabsTrigger>
         <TabsTrigger value="dispatch" className="rounded-none font-bold text-xs sm:text-sm">Dispatch</TabsTrigger>
+        <TabsTrigger value="locations" className="rounded-none font-bold text-xs sm:text-sm">Live Map</TabsTrigger>
         <TabsTrigger value="directory" className="rounded-none font-bold text-xs sm:text-sm">Directory</TabsTrigger>
         <TabsTrigger value="leaves" className="rounded-none font-bold text-xs sm:text-sm">Leaves</TabsTrigger>
       </TabsList>
@@ -201,27 +211,26 @@ export function AdminDashboard() {
                   <TableHead className="text-white font-bold">Hospital</TableHead>
                   <TableHead className="text-white font-bold">Person</TableHead>
                   <TableHead className="text-white font-bold">Outcome</TableHead>
-                  <TableHead className="text-white font-bold text-right">Total</TableHead>
+                  <TableHead className="text-white font-bold">Category</TableHead>
+                  <TableHead className="text-white font-bold text-right">Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-500">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-500">Loading…</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-500">No visits yet</TableCell></TableRow>
-                ) : filtered.map((r) => {
-                  const total = Number(r.travel_expense) + Number(r.food_expense) + Number(r.lodge_expense);
-                  return (
-                    <TableRow key={r.id} className="border-b border-slate-900/10">
-                      <TableCell className="whitespace-nowrap">{r.visit_date ?? r.date}</TableCell>
-                      <TableCell className="font-semibold">{r.staff_profiles?.staff_name ?? "—"}</TableCell>
-                      <TableCell><div className="font-medium">{r.h_master?.h_name}</div><div className="text-xs text-slate-500">{r.h_master?.branch_area}, {r.h_master?.city}</div></TableCell>
-                      <TableCell>{r.h_contacts?.contact_name ?? "—"}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.outcome_notes}</TableCell>
-                      <TableCell className="text-right font-bold">₹{total.toFixed(0)}</TableCell>
-                    </TableRow>
-                  );
-                })}
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-500">No visits yet</TableCell></TableRow>
+                ) : filtered.map((r) => (
+                  <TableRow key={r.id} className="border-b border-slate-900/10">
+                    <TableCell className="whitespace-nowrap">{r.visit_date ?? r.date}</TableCell>
+                    <TableCell className="font-semibold">{r.staff_profiles?.staff_name ?? "—"}</TableCell>
+                    <TableCell><div className="font-medium">{r.h_master?.h_name}</div><div className="text-xs text-slate-500">{r.h_master?.branch_area}, {r.h_master?.city}</div></TableCell>
+                    <TableCell>{r.h_contacts?.contact_name ?? "—"}</TableCell>
+                    <TableCell className="max-w-xs truncate">{r.outcome_notes}</TableCell>
+                    <TableCell>{r.expense_category ?? "—"}</TableCell>
+                    <TableCell className="text-right font-bold">₹{Number(r.expense_amount).toFixed(0)}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -232,10 +241,10 @@ export function AdminDashboard() {
         <Card className="border-2 border-slate-900/10 rounded-none shadow-none">
           <CardHeader className="border-b-2 border-slate-900/10">
             <CardTitle className="text-2xl font-bold tracking-tight">Team Dispatch Calendar</CardTitle>
-            <p className="text-xs text-slate-500">Pick a future date, assign a worker and hospital, then dispatch.</p>
+            <p className="text-xs text-slate-500">Pick a future date, assign a worker and hospital, then dispatch. An .ics calendar invite auto-downloads to share.</p>
           </CardHeader>
           <CardContent className="pt-4 space-y-4">
-            <div className="flex justify-center">
+            <div className="flex justify-center pointer-events-auto">
               <Calendar
                 mode="single"
                 selected={dispatchDate}
@@ -248,7 +257,7 @@ export function AdminDashboard() {
               />
             </div>
 
-            <div className="border-2 border-slate-900/10 p-4 space-y-3">
+            <div className="border-2 border-slate-900/10 p-4 space-y-3 pointer-events-auto relative z-10">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Assign for</p>
                 <p className="text-sm font-black">{dispatchDate ? format(dispatchDate, "PPP") : "—"}</p>
@@ -257,7 +266,7 @@ export function AdminDashboard() {
                 <Label className="font-semibold">Worker</Label>
                 <Select value={dWorker} onValueChange={setDWorker}>
                   <SelectTrigger className="border-2"><SelectValue placeholder="Select worker" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[80]">
                     {workers.length === 0 ? (
                       <div className="px-2 py-1.5 text-xs text-slate-500">No workers found</div>
                     ) : workers.map((w) => <SelectItem key={w.id} value={w.id}>{w.staff_name}</SelectItem>)}
@@ -268,7 +277,7 @@ export function AdminDashboard() {
                 <Label className="font-semibold">Target Hospital</Label>
                 <Select value={dHospital} onValueChange={setDHospital}>
                   <SelectTrigger className="border-2"><SelectValue placeholder="Select hospital" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[80]">
                     {hospitals.map((h) => <SelectItem key={h.id} value={h.id}>{h.h_name} — {h.branch_area}, {h.city}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -303,6 +312,10 @@ export function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="locations" className="mt-3">
+        <AdminLocations />
       </TabsContent>
 
       <TabsContent value="directory" className="mt-3">

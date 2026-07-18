@@ -17,9 +17,12 @@ export type Database = {
       assigned_tasks: {
         Row: {
           assigned_by: string
+          completed_at: string | null
           created_at: string
           h_id: string
           id: string
+          latitude: number | null
+          longitude: number | null
           scheduled_date: string
           status: string
           task_notes: string
@@ -27,9 +30,12 @@ export type Database = {
         }
         Insert: {
           assigned_by: string
+          completed_at?: string | null
           created_at?: string
           h_id: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           scheduled_date: string
           status?: string
           task_notes: string
@@ -37,9 +43,12 @@ export type Database = {
         }
         Update: {
           assigned_by?: string
+          completed_at?: string | null
           created_at?: string
           h_id?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           scheduled_date?: string
           status?: string
           task_notes?: string
@@ -69,16 +78,75 @@ export type Database = {
           },
         ]
       }
+      collections: {
+        Row: {
+          amount: number
+          collected_by: string | null
+          collected_date: string
+          created_at: string
+          id: string
+          invoice_id: string
+          method: string | null
+          reference_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          collected_by?: string | null
+          collected_date?: string
+          created_at?: string
+          id?: string
+          invoice_id: string
+          method?: string | null
+          reference_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          collected_by?: string | null
+          collected_date?: string
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          method?: string | null
+          reference_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collections_collected_by_fkey"
+            columns: ["collected_by"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collections_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_visit_logs: {
         Row: {
           contact_met_id: string | null
           created_at: string
           date: string
+          expense_amount: number
+          expense_category: string | null
+          expense_custom_reason: string | null
           expense_remarks: string | null
+          expense_verified: boolean
+          expense_verified_at: string | null
+          expense_verified_by: string | null
           food_expense: number
           h_id: string
           id: string
+          latitude: number | null
           lodge_expense: number
+          longitude: number | null
           outcome_notes: string
           purpose: Database["public"]["Enums"]["visit_purpose"]
           staff_id: string
@@ -89,11 +157,19 @@ export type Database = {
           contact_met_id?: string | null
           created_at?: string
           date?: string
+          expense_amount?: number
+          expense_category?: string | null
+          expense_custom_reason?: string | null
           expense_remarks?: string | null
+          expense_verified?: boolean
+          expense_verified_at?: string | null
+          expense_verified_by?: string | null
           food_expense?: number
           h_id: string
           id?: string
+          latitude?: number | null
           lodge_expense?: number
+          longitude?: number | null
           outcome_notes: string
           purpose: Database["public"]["Enums"]["visit_purpose"]
           staff_id: string
@@ -104,11 +180,19 @@ export type Database = {
           contact_met_id?: string | null
           created_at?: string
           date?: string
+          expense_amount?: number
+          expense_category?: string | null
+          expense_custom_reason?: string | null
           expense_remarks?: string | null
+          expense_verified?: boolean
+          expense_verified_at?: string | null
+          expense_verified_by?: string | null
           food_expense?: number
           h_id?: string
           id?: string
+          latitude?: number | null
           lodge_expense?: number
+          longitude?: number | null
           outcome_notes?: string
           purpose?: Database["public"]["Enums"]["visit_purpose"]
           staff_id?: string
@@ -121,6 +205,13 @@ export type Database = {
             columns: ["contact_met_id"]
             isOneToOne: false
             referencedRelation: "h_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_visit_logs_expense_verified_by_fkey"
+            columns: ["expense_verified_by"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -198,6 +289,63 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          h_id: string
+          id: string
+          invoice_number: string
+          issued_date: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          h_id: string
+          id?: string
+          invoice_number: string
+          issued_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          h_id?: string
+          id?: string
+          invoice_number?: string
+          issued_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_h_id_fkey"
+            columns: ["h_id"]
+            isOneToOne: false
+            referencedRelation: "h_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_leaves: {
         Row: {
           created_at: string
@@ -261,6 +409,47 @@ export type Database = {
           },
         ]
       }
+      staff_locations: {
+        Row: {
+          accuracy: number | null
+          captured_at: string
+          id: string
+          latitude: number
+          longitude: number
+          related_id: string | null
+          source: string
+          staff_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          captured_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          related_id?: string | null
+          source: string
+          staff_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          captured_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          related_id?: string | null
+          source?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_locations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_profiles: {
         Row: {
           created_at: string
@@ -296,7 +485,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "worker"
+      app_role: "admin" | "worker" | "accountant"
       leave_duration: "Full Day" | "Half Day" | "Hourly"
       leave_status: "Pending" | "Approved" | "Rejected"
       leave_type: "Sick Leave" | "Personal Work Leave" | "Mid-Day Offsite"
@@ -432,7 +621,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "worker"],
+      app_role: ["admin", "worker", "accountant"],
       leave_duration: ["Full Day", "Half Day", "Hourly"],
       leave_status: ["Pending", "Approved", "Rejected"],
       leave_type: ["Sick Leave", "Personal Work Leave", "Mid-Day Offsite"],
